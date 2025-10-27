@@ -1,6 +1,6 @@
 module mm
 
-go 1.25.2
+go 1.25
 
 require (
 	github.com/fasthttp/websocket v1.5.12
