@@ -22,7 +22,7 @@ type Params struct {
 	Symbol         string  `json:"symbol"`
 	Interval       string  `json:"interval"`
 	Limit          int     `json:"limit"`
-	MeSpan         int     `json:"mePeriod"`
+	MeSpan         int     `json:"meSpan"`
 	EmaSpan        int     `json:"emaSpan"`
 	BaseSpread     float64 `json:"baseSpread"`
 	InventoryLimit int     `json:"inventoryLimit"`
