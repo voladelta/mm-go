@@ -66,6 +66,9 @@ func (b *Binance) Sync(symbol string) {
 		panic("BINANCE_SECRET_KEY not set")
 	}
 
+	b.pz = b.getPz()
+	println(b.pz)
+
 	go b.wsUserStream()
 }
 
@@ -191,6 +194,43 @@ func (b *Binance) cancelOrders() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (b *Binance) getPz() float64 {
+	builder := builderPool.Get().(*strings.Builder)
+	builder.Reset()
+	defer builderPool.Put(builder)
+
+	builder.WriteString("symbol=")
+	builder.WriteString(b.symbol)
+	builder.WriteString("&recvWindow=500")
+	builder.WriteString("&timestamp=")
+	builder.WriteString(strconv.FormatInt(time.Now().UnixMilli(), 10))
+	totalParams := builder.String()
+	signature := b.signHmac(totalParams)
+
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+
+	req.SetRequestURI("https://fapi.binance.com/fapi/v3/positionRisk?" + totalParams + "&signature=" + signature)
+	req.Header.Set("X-MBX-APIKEY", b.apiKey)
+	req.Header.SetMethod("GET")
+
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(resp)
+
+	err := b.client.Do(req, resp)
+	if err != nil {
+		panic(err)
+	}
+
+	body := resp.Body()
+	msg := gjson.GetBytes(body, "msg")
+	if msg.Exists() {
+		panic(msg.Str)
+	}
+
+	return gjson.GetBytes(body, "0.positionAmt").Float()
 }
 
 func (b *Binance) getListenKey() string {
