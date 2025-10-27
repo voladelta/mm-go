@@ -23,9 +23,8 @@ type Params struct {
 	Symbol         string  `json:"symbol"`
 	Interval       string  `json:"interval"`
 	Limit          int     `json:"limit"`
-	Period         int     `json:"period"`
-	BandPeriod     int     `json:"bandPeriod"`
-	BandMultiplier float64 `json:"bandMultiplier"`
+	MeSpan         int     `json:"mePeriod"`
+	EmaSpan        int     `json:"emaSpan"`
 	BaseSpread     float64 `json:"baseSpread"`
 	InventoryLimit int     `json:"inventoryLimit"`
 	LotSize        int     `json:"lotSize"`
@@ -63,18 +62,11 @@ type Candle struct {
 
 type StrategyCandle struct {
 	Candle
+
+	EmaSlopeNorm         float64
 	Efficiency           float64
 	NormalizedEfficiency float64
 	IsBullish            bool
-	HasEfficiency        bool
-	BandMid              float64
-	BandUpper            float64
-	BandLower            float64
-	BandWidth            float64
-	BandZ                float64
-	BandMidSlope         float64
-	BandMidSlopeNorm     float64
-	HasBollinger         bool
 }
 
 type Trade struct {
@@ -125,7 +117,7 @@ func (pe *PaperEngine) Inventory() int {
 	return pe.inventory
 }
 
-func (pe *PaperEngine) ApplyFills(c StrategyCandle) []Trade {
+func (pe *PaperEngine) ApplyFills(c Candle) []Trade {
 	if len(pe.pendingOrders) == 0 {
 		return nil
 	}
@@ -166,7 +158,7 @@ func (pe *PaperEngine) ApplyFills(c StrategyCandle) []Trade {
 	return fills
 }
 
-func (pe *PaperEngine) FinalizeCandle(c StrategyCandle, quote Quote, fills []Trade) ResultRow {
+func (pe *PaperEngine) FinalizeCandle(c Candle, quote Quote, fills []Trade) ResultRow {
 	currentPnL := pe.cash + float64(pe.inventory)*c.Close
 	pe.pnlHistory = append(pe.pnlHistory, currentPnL)
 
@@ -183,7 +175,6 @@ func (pe *PaperEngine) FinalizeCandle(c StrategyCandle, quote Quote, fills []Tra
 		Close:         c.Close,
 		Bid:           math.NaN(),
 		Ask:           math.NaN(),
-		Efficiency:    c.NormalizedEfficiency,
 		Inventory:     pe.inventory,
 		Signal:        signal,
 		Cash:          pe.cash,
@@ -258,7 +249,6 @@ type ResultRow struct {
 	Close         float64
 	Bid           float64
 	Ask           float64
-	Efficiency    float64
 	Inventory     int
 	Signal        float64
 	Cash          float64
@@ -289,13 +279,7 @@ func (ec *MeIndicator) Process(c Candle) (StrategyCandle, bool) {
 		Candle:               c,
 		Efficiency:           math.NaN(),
 		NormalizedEfficiency: math.NaN(),
-		BandMid:              math.NaN(),
-		BandUpper:            math.NaN(),
-		BandLower:            math.NaN(),
-		BandWidth:            math.NaN(),
-		BandZ:                math.NaN(),
-		BandMidSlope:         math.NaN(),
-		BandMidSlopeNorm:     math.NaN(),
+		EmaSlopeNorm:         math.NaN(),
 	}
 
 	if ec.period <= 0 {
@@ -354,106 +338,66 @@ func (ec *MeIndicator) Process(c Candle) (StrategyCandle, bool) {
 	sc.Efficiency = efficiency
 	sc.NormalizedEfficiency = normalized
 	sc.IsBullish = priceChange > 0
-	sc.HasEfficiency = true
 
 	return sc, true
 }
 
-type BollingerBands struct {
-	Mid          float64
-	Upper        float64
-	Lower        float64
-	Width        float64
-	ZScore       float64
-	MidSlope     float64
-	MidSlopeNorm float64
-}
-
-type BollingerIndicator struct {
-	period     int
-	multiplier float64
+type EmaIndicator struct {
+	Span       int
 	window     []float64
+	alpha      float64
+	decay      float64
+	ema        float64
 	sum        float64
 	sumSquares float64
 	lastMid    float64
 	hasLastMid bool
 }
 
-func NewBollingerIndicator(period int, multiplier float64) *BollingerIndicator {
-	return &BollingerIndicator{
-		period:     period,
-		multiplier: multiplier,
-		window:     make([]float64, 0, period),
+func NewEmaIndicator(span int) *EmaIndicator {
+	alpha := 2 / float64(span+1)
+	return &EmaIndicator{
+		alpha:  alpha,
+		decay:  1 - alpha,
+		Span:   span,
+		window: make([]float64, 0, span),
 	}
 }
 
-func (bi *BollingerIndicator) Process(c Candle) (BollingerBands, bool) {
-	bands := BollingerBands{
-		Mid:          math.NaN(),
-		Upper:        math.NaN(),
-		Lower:        math.NaN(),
-		Width:        math.NaN(),
-		ZScore:       math.NaN(),
-		MidSlope:     math.NaN(),
-		MidSlopeNorm: math.NaN(),
+func (indi *EmaIndicator) Process(c Candle) (float64, bool) {
+	ema := c.Close*indi.alpha + indi.ema*indi.decay
+	indi.ema = ema
+	indi.window = append(indi.window, ema)
+	indi.sum += ema
+	indi.sumSquares += ema * ema
+
+	if len(indi.window) < indi.Span {
+		return math.NaN(), false
 	}
 
-	if bi == nil || bi.period <= 1 {
-		return bands, false
+	if len(indi.window) > indi.Span {
+		removed := indi.window[0]
+		indi.window = indi.window[1:]
+		indi.sum -= removed
+		indi.sumSquares -= removed * removed
 	}
 
-	closePx := c.Close
-	bi.window = append(bi.window, closePx)
-	bi.sum += closePx
-	bi.sumSquares += closePx * closePx
-
-	if len(bi.window) > bi.period {
-		removed := bi.window[0]
-		bi.window = bi.window[1:]
-		bi.sum -= removed
-		bi.sumSquares -= removed * removed
-	}
-
-	if len(bi.window) < bi.period {
-		return bands, false
-	}
-
-	n := float64(len(bi.window))
-	mean := bi.sum / n
-	variance := (bi.sumSquares / n) - (mean * mean)
+	n := float64(len(indi.window))
+	mean := indi.sum / n
+	variance := (indi.sumSquares / n) - (mean * mean)
 	if variance < 0 {
 		variance = 0
 	}
 
 	stdDev := math.Sqrt(variance)
-	mult := bi.multiplier
-
-	upper := mean
-	lower := mean
-	if mult > 0 && stdDev > 0 {
-		offset := mult * stdDev
-		upper = mean + offset
-		lower = mean - offset
-		bands.Width = 2 * offset
-	} else {
-		bands.Width = 0
-	}
-
-	z := 0.0
-	if mult > 0 && stdDev > 0 {
-		denom := mult * stdDev
-		if denom > 0 {
-			z = clampFloat((closePx-mean)/denom, -1, 1)
-		}
-	}
 
 	slope := math.NaN()
 	normSlope := math.NaN()
-	if bi.hasLastMid {
-		slope = mean - bi.lastMid
+	if indi.hasLastMid {
+		slope = mean - indi.lastMid
 		denom := stdDev
 		if denom == 0 {
-			denom = math.Abs(bi.lastMid)
+			denom = math.Abs(indi.lastMid)
 			if denom == 0 {
 				denom = math.Abs(mean)
 			}
@@ -468,20 +412,15 @@ func (bi *BollingerIndicator) Process(c Candle) (BollingerBands, bool) {
 		}
 	}
 
-	bands.Mid = mean
-	bands.Upper = upper
-	bands.Lower = lower
-	bands.ZScore = z
-	bands.MidSlope = slope
-	bands.MidSlopeNorm = normSlope
+	indi.lastMid = mean
+	indi.hasLastMid = true
 
-	bi.lastMid = mean
-	bi.hasLastMid = true
-
-	return bands, true
+	return normSlope, true
 }
 
 type MmStrat struct {
+	meIndi         *MeIndicator
+	emaIndi        *EmaIndicator
 	BaseSpread     float64
 	InventoryLimit int
 	LotSize        int
@@ -492,6 +431,8 @@ type MmStrat struct {
 
 func NewMmStrat(params *Params) *MmStrat {
 	return &MmStrat{
+		meIndi:         NewMeIndicator(params.MeSpan),
+		emaIndi:        NewEmaIndicator(params.EmaSpan),
 		BaseSpread:     params.BaseSpread,
 		InventoryLimit: params.InventoryLimit,
 		LotSize:        params.LotSize,
@@ -501,7 +442,17 @@ func NewMmStrat(params *Params) *MmStrat {
 	}
 }
 
-func (s *MmStrat) Process(c StrategyCandle, inventory int) Quote {
+func (s *MmStrat) Process(candle Candle, inventory int) (bool, Quote) {
+	emaSlopeNorm, emaOk := s.emaIndi.Process(candle)
+	c, meOk := s.meIndi.Process(candle)
+
+	if !emaOk || math.IsNaN(emaSlopeNorm) ||
+		!meOk || math.IsNaN(c.NormalizedEfficiency) {
+		return false, Quote{}
+	}
+
+	c.EmaSlopeNorm = emaSlopeNorm
+
 	quote := Quote{
 		Time:      c.Time,
 		BidPrice:  math.NaN(),
@@ -511,10 +462,6 @@ func (s *MmStrat) Process(c StrategyCandle, inventory int) Quote {
 		BidActive: false,
 		AskActive: false,
 		Valid:     false,
-	}
-
-	if !c.HasEfficiency || math.IsNaN(c.NormalizedEfficiency) {
-		return quote
 	}
 
 	closePrice := c.Close
@@ -540,23 +487,12 @@ func (s *MmStrat) Process(c StrategyCandle, inventory int) Quote {
 	}
 
 	if s.TrendSkewK != 0 {
-		trendSignal := 0.0
-		slopeUsed := false
-		if c.HasBollinger && !math.IsNaN(c.BandMidSlopeNorm) {
-			trendSignal = c.BandMidSlopeNorm
-			slopeUsed = true
+		baseTrend := efficiency
+		if !isBullish {
+			baseTrend = -baseTrend
 		}
-		if c.HasEfficiency && !math.IsNaN(efficiency) {
-			baseTrend := efficiency
-			if !isBullish {
-				baseTrend = -baseTrend
-			}
-			if slopeUsed {
-				trendSignal = clampFloat(trendSignal+0.5*baseTrend+s.TrendBias, -1, 1)
-			} else {
-				trendSignal = baseTrend
-			}
-		}
+
+		trendSignal := clampFloat(emaSlopeNorm+0.5*baseTrend+s.TrendBias, -1, 1)
 		trendShift := s.TrendSkewK * trendSignal * halfSpread
 		bid -= trendShift
 		ask -= trendShift
@@ -578,7 +514,7 @@ func (s *MmStrat) Process(c StrategyCandle, inventory int) Quote {
 		quote.AskPrice = math.NaN()
 	}
 
-	return quote
+	return true, quote
 }
 
 func absInt(v int) int {
@@ -607,16 +543,6 @@ func main() {
 	params := LoadParams(*paramsFile)
 	fmt.Printf("Params loaded: %+v\n", params)
 
-	meIndicator := NewMeIndicator(params.Period)
-	bandPeriod := params.BandPeriod
-	if bandPeriod <= 0 {
-		bandPeriod = params.Period
-	}
-	bandMultiplier := params.BandMultiplier
-	if bandMultiplier <= 0 {
-		bandMultiplier = 2.0
-	}
-	bollIndicator := NewBollingerIndicator(bandPeriod, bandMultiplier)
 	strategy := NewMmStrat(params)
 	paper := NewPaperEngine()
 
@@ -624,24 +550,14 @@ func main() {
 	candles := FetchKlines(params.Symbol, params.Interval, params.Limit)
 
 	for _, candle := range candles {
-		bands, hasBands := bollIndicator.Process(candle)
-		if sc, ok := meIndicator.Process(candle); ok {
-			if hasBands {
-				sc.BandMid = bands.Mid
-				sc.BandUpper = bands.Upper
-				sc.BandLower = bands.Lower
-				sc.BandWidth = bands.Width
-				sc.BandZ = bands.ZScore
-				sc.BandMidSlope = bands.MidSlope
-				sc.BandMidSlopeNorm = bands.MidSlopeNorm
-				sc.HasBollinger = true
-			}
-			fills := paper.ApplyFills(sc)
-			quote := strategy.Process(sc, paper.Inventory())
-			row := paper.FinalizeCandle(sc, quote, fills)
-			if len(fills) > 0 && *showTrades {
-				fmt.Printf("\n%v\n%v\n---", row, fills)
-			}
+		fills := paper.ApplyFills(candle)
+		ok, quote := strategy.Process(candle, paper.Inventory())
+		if !ok {
+			continue
+		}
+		row := paper.FinalizeCandle(candle, quote, fills)
+		if *showTrades && len(fills) > 0 {
+			fmt.Printf("\n%v\n%v\n---", row, fills)
 		}
 	}
 
@@ -660,21 +576,11 @@ func main() {
 
 	WsKline(params.Symbol, func(c Candle, b bool) {
 		if b {
-			bands, hasBands := bollIndicator.Process(c)
-			if sc, ok := meIndicator.Process(c); ok {
-				if hasBands {
-					sc.BandMid = bands.Mid
-					sc.BandUpper = bands.Upper
-					sc.BandLower = bands.Lower
-					sc.BandWidth = bands.Width
-					sc.BandZ = bands.ZScore
-					sc.BandMidSlope = bands.MidSlope
-					sc.BandMidSlopeNorm = bands.MidSlopeNorm
-					sc.HasBollinger = true
-				}
-				quote := strategy.Process(sc, trader.Inventory())
-				trader.Apply(quote)
+			ok, quote := strategy.Process(c, trader.Inventory())
+			if !ok {
+				return
 			}
+			trader.Apply(quote)
 		}
 	})
 }
