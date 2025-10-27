@@ -1,0 +1,19 @@
+{
+  "symbol": "BTCUSDC",
+  "interval": "1m",
+  "limit": 120,
+
+  "meSpan": 15,
+  "emaSpan": 15,
+  "baseSpread": 0.001,
+  "lotSize": 1,
+  "inventoryLimit": 50,
+  "inventorySkewK": 0.2,
+  "trendSkewK": 0.4,
+  "trendBias": -0.5,
+
+  "tradeSymbol": "BTCUSDC",
+  "tradeSz": 0.001,
+  "pxPrecision": 1,
+  "szPrecision": 3
+}

@@ -67,7 +67,6 @@ func (b *Binance) Sync(symbol string) {
 	}
 
 	b.pz = b.getPz()
-	println(b.pz)
 
 	go b.wsUser()
 }

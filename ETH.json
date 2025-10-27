@@ -1,19 +1,19 @@
 {
-  "symbol": "BTCUSDC",
+  "symbol": "ETHUSDC",
   "interval": "1m",
-  "limit": 960,
+  "limit": 120,
 
   "meSpan": 15,
   "emaSpan": 15,
-  "baseSpread": 0.001,
+  "baseSpread": 0.0005,
   "lotSize": 1,
   "inventoryLimit": 50,
   "inventorySkewK": 0.2,
   "trendSkewK": 0.4,
   "trendBias": -0.5,
 
-  "tradeSymbol": "BTCUSDC",
-  "tradeSz": 0.001,
-  "pxPrecision": 1,
-  "szPrecision": 3
+  "tradeSymbol": "ETHUSDC",
+  "tradeSz": 0.01,
+  "pxPrecision": 2,
+  "szPrecision": 2
 }
