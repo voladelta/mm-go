@@ -274,7 +274,7 @@ func NewMeIndicator(period int) *MeIndicator {
 	}
 }
 
-func (ec *MeIndicator) Process(c Candle) (StrategyCandle, bool) {
+func (indi *MeIndicator) Process(c Candle) (StrategyCandle, bool) {
 	sc := StrategyCandle{
 		Candle:               c,
 		Efficiency:           math.NaN(),
@@ -282,51 +282,51 @@ func (ec *MeIndicator) Process(c Candle) (StrategyCandle, bool) {
 		EmaSlopeNorm:         math.NaN(),
 	}
 
-	if ec.period <= 0 {
+	if indi.period <= 0 {
 		return sc, false
 	}
 
 	tr := c.High - c.Low
-	if len(ec.closeHistory) > 0 {
-		prevClose := ec.closeHistory[len(ec.closeHistory)-1]
+	if len(indi.closeHistory) > 0 {
+		prevClose := indi.closeHistory[len(indi.closeHistory)-1]
 		tr = math.Max(tr, math.Abs(c.High-prevClose))
 		tr = math.Max(tr, math.Abs(c.Low-prevClose))
 	}
 
-	ec.trWindow = append(ec.trWindow, tr)
-	ec.trSum += tr
-	if len(ec.trWindow) > ec.period {
-		ec.trSum -= ec.trWindow[0]
-		ec.trWindow = ec.trWindow[1:]
+	indi.trWindow = append(indi.trWindow, tr)
+	indi.trSum += tr
+	if len(indi.trWindow) > indi.period {
+		indi.trSum -= indi.trWindow[0]
+		indi.trWindow = indi.trWindow[1:]
 	}
 
-	ec.volWindow = append(ec.volWindow, c.Volume)
-	ec.volSum += c.Volume
-	if len(ec.volWindow) > ec.period {
-		ec.volSum -= ec.volWindow[0]
-		ec.volWindow = ec.volWindow[1:]
+	indi.volWindow = append(indi.volWindow, c.Volume)
+	indi.volSum += c.Volume
+	if len(indi.volWindow) > indi.period {
+		indi.volSum -= indi.volWindow[0]
+		indi.volWindow = indi.volWindow[1:]
 	}
 
-	ec.closeHistory = append(ec.closeHistory, c.Close)
-	if len(ec.closeHistory) > ec.period+1 {
-		ec.closeHistory = ec.closeHistory[len(ec.closeHistory)-(ec.period+1):]
+	indi.closeHistory = append(indi.closeHistory, c.Close)
+	if len(indi.closeHistory) > indi.period+1 {
+		indi.closeHistory = indi.closeHistory[len(indi.closeHistory)-(indi.period+1):]
 	}
 
-	if len(ec.closeHistory) <= ec.period {
+	if len(indi.closeHistory) <= indi.period {
 		return sc, false
 	}
-	if len(ec.trWindow) < ec.period || len(ec.volWindow) < ec.period {
+	if len(indi.trWindow) < indi.period || len(indi.volWindow) < indi.period {
 		return sc, false
 	}
 
-	priceChange := c.Close - ec.closeHistory[0]
-	totalMovement := ec.trSum
+	priceChange := c.Close - indi.closeHistory[0]
+	totalMovement := indi.trSum
 	efficiency := 0.0
 	if totalMovement > 0 {
 		efficiency = math.Abs(priceChange) / totalMovement
 	}
 
-	volumeSMA := ec.volSum / float64(ec.period)
+	volumeSMA := indi.volSum / float64(indi.period)
 	volumeRatio := 0.0
 	if volumeSMA > 0 {
 		volumeRatio = c.Volume / volumeSMA
