@@ -31,14 +31,14 @@ type Params struct {
 	LotSize        int     `json:"lotSize"`
 	InventorySkewK float64 `json:"inventorySkewK"`
 	TrendSkewK     float64 `json:"trendSkewK"`
+	TrendBias      float64 `json:"trendBias"`
 	TradeSymbol    string  `json:"tradeSymbol"`
 	TradeSz        float64 `json:"tradeSz"`
 	PxPrecision    int     `json:"pxPrecision"`
 	SzPrecision    int     `json:"szPrecision"`
 }
 
-func LoadParams(path string) Params {
-
+func LoadParams(path string) *Params {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatalf("LoadParams: unable to read %s: %v", path, err)
@@ -49,7 +49,7 @@ func LoadParams(path string) Params {
 		log.Fatalf("LoadParams: invalid JSON in %s: %v", path, err)
 	}
 
-	return params
+	return &params
 }
 
 type Candle struct {
@@ -487,15 +487,17 @@ type MmStrat struct {
 	LotSize        int
 	InventorySkewK float64
 	TrendSkewK     float64
+	TrendBias      float64
 }
 
-func NewMmStrat(baseSpread float64, inventoryLimit, lotSize int, inventorySkewK, trendSkewK float64) *MmStrat {
+func NewMmStrat(params *Params) *MmStrat {
 	return &MmStrat{
-		BaseSpread:     baseSpread,
-		InventoryLimit: inventoryLimit,
-		LotSize:        lotSize,
-		InventorySkewK: inventorySkewK,
-		TrendSkewK:     trendSkewK,
+		BaseSpread:     params.BaseSpread,
+		InventoryLimit: params.InventoryLimit,
+		LotSize:        params.LotSize,
+		InventorySkewK: params.InventorySkewK,
+		TrendSkewK:     params.TrendSkewK,
+		TrendBias:      params.TrendBias,
 	}
 }
 
@@ -550,7 +552,7 @@ func (s *MmStrat) Process(c StrategyCandle, inventory int) Quote {
 				baseTrend = -baseTrend
 			}
 			if slopeUsed {
-				trendSignal = clampFloat(trendSignal+0.5*baseTrend, -1, 1)
+				trendSignal = clampFloat(trendSignal+0.5*baseTrend+s.TrendBias, -1, 1)
 			} else {
 				trendSignal = baseTrend
 			}
@@ -615,7 +617,7 @@ func main() {
 		bandMultiplier = 2.0
 	}
 	bollIndicator := NewBollingerIndicator(bandPeriod, bandMultiplier)
-	strategy := NewMmStrat(params.BaseSpread, params.InventoryLimit, params.LotSize, params.InventorySkewK, params.TrendSkewK)
+	strategy := NewMmStrat(params)
 	paper := NewPaperEngine()
 
 	fmt.Printf("Fetching data for %s (%s, limit=%d)...\n", params.Symbol, params.Interval, params.Limit)
@@ -653,7 +655,7 @@ func main() {
 		return
 	}
 
-	trader := NewBinance(&params)
+	trader := NewBinance(params)
 	trader.Sync(params.TradeSymbol)
 
 	WsKline(params.Symbol, func(c Candle, b bool) {
