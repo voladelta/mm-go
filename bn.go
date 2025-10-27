@@ -69,7 +69,7 @@ func (b *Binance) Sync(symbol string) {
 	b.pz = b.getPz()
 	println(b.pz)
 
-	go b.wsUserStream()
+	go b.wsUser()
 }
 
 func (b *Binance) signHmac(data string) string {
@@ -272,20 +272,20 @@ func (b *Binance) extendListenKey() {
 	}
 }
 
-func (b *Binance) wsUserStream() {
-	listenKey := b.getListenKey()
-
-	// Extend listen key every 55 minutes
-	ticker := time.NewTicker(55 * time.Minute)
-	go func() {
-		for range ticker.C {
-			b.extendListenKey()
-		}
-	}()
-
+func (b *Binance) wsUser() {
 	for {
-		url := fmt.Sprintf("%s%s", "wss://fstream.binance.com/ws/", listenKey)
-		c, _, err := websocket.DefaultDialer.Dial(url, nil)
+		listenKey := b.getListenKey()
+
+		// Extend listen key every 55 minutes
+		ticker := time.NewTicker(55 * time.Minute)
+		go func() {
+			for range ticker.C {
+				b.extendListenKey()
+			}
+		}()
+
+		urlStr := "wss://fstream.binance.com/ws/" + listenKey
+		c, _, err := websocket.DefaultDialer.Dial(urlStr, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -293,7 +293,7 @@ func (b *Binance) wsUserStream() {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				slog.Error("WsUserStream", "ReadMessage", err)
+				slog.Error("wsUser", "ReadMessage", err)
 				break
 			}
 
@@ -302,8 +302,7 @@ func (b *Binance) wsUserStream() {
 				continue
 			}
 
-			eventType := eventResult.Str
-			if eventType == "ACCOUNT_UPDATE" {
+			if eventResult.Str == "ACCOUNT_UPDATE" {
 				positions := gjson.GetBytes(message, "a.P")
 				if !positions.Exists() {
 					continue
@@ -318,7 +317,9 @@ func (b *Binance) wsUserStream() {
 			}
 		}
 
-		slog.Info("WsUserStream", "disconnected", "reconnect in a sec")
+		ticker.Stop()
+
+		slog.Info("wsUser", "disconnected", "reconnect in a sec")
 		time.Sleep(time.Second)
 	}
 }
