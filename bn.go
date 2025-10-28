@@ -133,7 +133,7 @@ func (b *Binance) placeOrder(qty float64, px float64) {
 	req.SetRequestURI("https://fapi.binance.com/fapi/v1/order")
 	req.Header.Set("X-MBX-APIKEY", b.apiKey)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.SetMethod("POST")
+	req.Header.SetMethod(fasthttp.MethodPost)
 
 	req.AppendBodyString(totalParams)
 	req.AppendBodyString("&signature=")
@@ -182,7 +182,7 @@ func (b *Binance) cancelOrders() {
 	req.SetRequestURI("https://fapi.binance.com/fapi/v1/allOpenOrders")
 	req.Header.Set("X-MBX-APIKEY", b.apiKey)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.SetMethod("DELETE")
+	req.Header.SetMethod(fasthttp.MethodDelete)
 
 	req.AppendBodyString(totalParams)
 	req.AppendBodyString("&signature=")
@@ -212,7 +212,7 @@ func (b *Binance) getPz() float64 {
 
 	req.SetRequestURI("https://fapi.binance.com/fapi/v3/positionRisk?" + totalParams + "&signature=" + signature)
 	req.Header.Set("X-MBX-APIKEY", b.apiKey)
-	req.Header.SetMethod("GET")
+	req.Header.SetMethod(fasthttp.MethodGet)
 
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)
@@ -237,7 +237,7 @@ func (b *Binance) getListenKey() string {
 
 	req.SetRequestURI("https://fapi.binance.com/fapi/v1/listenKey")
 	req.Header.Set("X-MBX-APIKEY", b.apiKey)
-	req.Header.SetMethod("POST")
+	req.Header.SetMethod(fasthttp.MethodPost)
 
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)
@@ -262,7 +262,7 @@ func (b *Binance) extendListenKey() {
 
 	req.SetRequestURI("https://fapi.binance.com/fapi/v1/listenKey")
 	req.Header.Set("X-MBX-APIKEY", b.apiKey)
-	req.Header.SetMethod("PUT")
+	req.Header.SetMethod(fasthttp.MethodPut)
 
 	err := b.client.Do(req, nil)
 	if err != nil {
