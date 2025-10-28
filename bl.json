@@ -1,0 +1,19 @@
+{
+  "symbol": "币安人生USDT",
+  "interval": "1m",
+  "limit": 1500,
+
+  "meSpan": 15,
+  "emaSpan": 15,
+  "baseSpread": 0.005,
+  "lotSize": 1,
+  "inventoryLimit": 50,
+  "inventorySkewK": 0.1,
+  "trendSkewK": 0.4,
+  "trendBias": 0.6,
+
+  "tradeSymbol": "币安人生USDT",
+  "tradeSz": 25,
+  "pxPrecision": 5,
+  "szPrecision": 0
+}
