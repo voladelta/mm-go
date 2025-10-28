@@ -318,7 +318,7 @@ func (b *Binance) wsUser() {
 	}
 }
 
-func FetchKlines(symbol, interval string, limit int) []Candle {
+func FetchKlines(symbol, interval string, limit int, endTime string) []Candle {
 	client := &fasthttp.Client{}
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
@@ -331,7 +331,13 @@ func FetchKlines(symbol, interval string, limit int) []Candle {
 	queryArgs.Set("symbol", symbol)
 	queryArgs.Set("interval", interval)
 	queryArgs.Set("limit", strconv.Itoa(min(limit, 1500)))
-
+	if endTime != "" {
+		t, err := time.Parse(time.RFC3339, endTime)
+		if err != nil {
+			panic(err)
+		}
+		queryArgs.Set("endTime", strconv.FormatInt(t.UnixMilli(), 10))
+	}
 	if err := client.Do(req, resp); err != nil {
 		panic(err)
 	}

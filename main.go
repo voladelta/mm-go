@@ -11,6 +11,7 @@ import (
 type Params struct {
 	Symbol         string  `json:"symbol"`
 	Interval       string  `json:"interval"`
+	EndTime        string  `json:"endTime"`
 	Limit          int     `json:"limit"`
 	MeSpan         int     `json:"meSpan"`
 	EmaSpan        int     `json:"emaSpan"`
@@ -53,7 +54,7 @@ func main() {
 	paper := NewPaperEngine()
 
 	fmt.Printf("Fetching data for %s (%s, limit=%d)...\n", params.Symbol, params.Interval, params.Limit)
-	candles := FetchKlines(params.Symbol, params.Interval, params.Limit)
+	candles := FetchKlines(params.Symbol, params.Interval, params.Limit, params.EndTime)
 
 	for _, candle := range candles {
 		fills := paper.ApplyFills(candle)
