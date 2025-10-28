@@ -175,15 +175,15 @@ func (pe *PaperEngine) FinalPnL() float64 {
 }
 
 func (pe *PaperEngine) PnLHistory() []float64 {
-	return append([]float64(nil), pe.pnlHistory...)
+	return pe.pnlHistory
 }
 
 func (pe *PaperEngine) Trades() []Trade {
-	return append([]Trade(nil), pe.trades...)
+	return pe.trades
 }
 
 func (pe *PaperEngine) Results() []ResultRow {
-	return append([]ResultRow(nil), pe.results...)
+	return pe.results
 }
 
 type ResultRow struct {
