@@ -17,9 +17,6 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-const SZ_EPSILON = 0.05 // 5%
-
-// Pool for strings.Builder instances to reduce allocations
 var builderPool = sync.Pool{
 	New: func() any {
 		return &strings.Builder{}
