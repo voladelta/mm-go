@@ -32,11 +32,10 @@ type Binance struct {
 	szPrecision int
 	pxPrecision int
 
-	pxFactor  float64
-	szFactor  float64
-	szEpsilon float64
-	tradeSz   float64
-	pz        float64
+	pxFactor float64
+	szFactor float64
+	tradeSz  float64
+	pz       float64
 }
 
 func NewBinance(params *Params) *Binance {
