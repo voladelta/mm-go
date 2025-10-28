@@ -87,7 +87,7 @@ func (b *Binance) Inventory() int {
 
 func (b *Binance) Apply(quote Quote) {
 	b.cancelOrders()
-	fmt.Printf("%v\n", quote)
+
 	if quote.BidActive && quote.BidSize > 0 && !math.IsNaN(quote.BidPrice) {
 		go b.placeOrder(float64(quote.BidSize)*b.tradeSz, math.Floor(quote.BidPrice*b.pxFactor)/b.pxFactor)
 	}
@@ -97,7 +97,6 @@ func (b *Binance) Apply(quote Quote) {
 }
 
 func (b *Binance) placeOrder(qty float64, px float64) {
-	fmt.Printf("%f %f\n", qty, px)
 	builder := builderPool.Get().(*strings.Builder)
 	builder.Reset()
 	defer builderPool.Put(builder)
