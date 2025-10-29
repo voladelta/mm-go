@@ -1,61 +1,33 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
-	"os"
+	"mm/pkg/alpha"
+	"mm/pkg/bn"
+	"mm/pkg/x10"
 )
 
-type Params struct {
-	Symbol         string  `json:"symbol"`
-	Interval       string  `json:"interval"`
-	EndTime        string  `json:"endTime"`
-	Limit          int     `json:"limit"`
-	MeSpan         int     `json:"meSpan"`
-	EmaSpan        int     `json:"emaSpan"`
-	BaseSpread     float64 `json:"baseSpread"`
-	InventoryLimit int     `json:"inventoryLimit"`
-	LotSize        int     `json:"lotSize"`
-	InventorySkewK float64 `json:"inventorySkewK"`
-	TrendSkewK     float64 `json:"trendSkewK"`
-	TrendBias      float64 `json:"trendBias"`
-	TradeSymbol    string  `json:"tradeSymbol"`
-	TradeSz        float64 `json:"tradeSz"`
-	PxPrecision    int     `json:"pxPrecision"`
-	SzPrecision    int     `json:"szPrecision"`
-}
-
-func LoadParams(path string) *Params {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		log.Fatalf("LoadParams: unable to read %s: %v", path, err)
-	}
-
-	var params Params
-	if err := json.Unmarshal(data, &params); err != nil {
-		log.Fatalf("LoadParams: invalid JSON in %s: %v", path, err)
-	}
-
-	return &params
-}
-
 func main() {
+	x10.WsKline("BTC-USD", "1M", func(c alpha.Candle) {
+		fmt.Printf("%v\n", c)
+	})
+
 	paramsFile := flag.String("p", "params.json", "Strategy parameters")
 	showTrades := flag.Bool("s", false, "Show trades")
 	isTesting := flag.Bool("t", false, "Backtest mode")
 	flag.Parse()
 
-	params := LoadParams(*paramsFile)
+	params := alpha.LoadParams(*paramsFile)
 	fmt.Printf("Params loaded: %+v\n", params)
 
-	strategy := NewMmStrat(params)
-	paper := NewPaperEngine()
+	strategy := alpha.NewMmStrat(params)
+	paper := alpha.NewPaperEngine()
 
 	fmt.Printf("Fetching data for %s (%s, limit=%d)...\n", params.Symbol, params.Interval, params.Limit)
-	candles := FetchKlines(params.Symbol, params.Interval, params.Limit, params.EndTime)
-
+	candles := x10.FetchKlines(params.Symbol, params.Interval, params.Limit, params.EndTime)
+	fmt.Printf("%v\n", candles[0])
+	fmt.Printf("%v\n", candles[10])
 	for _, candle := range candles {
 		fills := paper.ApplyFills(candle)
 		ok, quote := strategy.Process(candle, paper.Inventory())
@@ -78,10 +50,10 @@ func main() {
 		return
 	}
 
-	trader := NewBinance(params)
+	trader := bn.NewBinance(params)
 	trader.Sync(params.TradeSymbol)
 
-	WsKline(params.Symbol, func(c Candle, b bool) {
+	bn.WsKline(params.Symbol, func(c alpha.Candle, b bool) {
 		if b {
 			ok, quote := strategy.Process(c, trader.Inventory())
 			if !ok {

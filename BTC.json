@@ -1,7 +1,7 @@
 {
-  "symbol": "BTCUSDC",
+  "symbol": "BTC-USD",
   "interval": "1m",
-  "limit": 120,
+  "limit": 1500,
 
   "meSpan": 15,
   "emaSpan": 15,
@@ -10,7 +10,7 @@
   "inventoryLimit": 50,
   "inventorySkewK": 0.2,
   "trendSkewK": 0.4,
-  "trendBias": -0.5,
+  "trendBias": 0.5,
 
   "tradeSymbol": "BTCUSDC",
   "tradeSz": 0.001,
