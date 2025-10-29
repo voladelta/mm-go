@@ -206,7 +206,7 @@ func CreateOrderObject(params CreateOrderObjectParams) (*PerpetualOrderModel, er
 		Nonce:               *params.Nonce,
 		PositionID:          int(params.Account.vault),
 		ExpirationTimestamp: *params.ExpireTime,
-		PublicKey:           params.Account.PublicKey(),
+		PublicKey:           params.Account.publicKey,
 		StarknetDomain:      params.StarknetDomain,
 	})
 
@@ -224,8 +224,8 @@ func CreateOrderObject(params CreateOrderObjectParams) (*PerpetualOrderModel, er
 			fmt.Sprintf("0x%x", sig_r),
 			fmt.Sprintf("0x%x", sig_s),
 		},
-		StarkKey:           params.Account.PublicKey(),
-		CollateralPosition: fmt.Sprintf("%d", params.Account.Vault()),
+		StarkKey:           params.Account.publicKey,
+		CollateralPosition: fmt.Sprintf("%d", params.Account.vault),
 	}
 
 	if params.OrderExternalID == nil {

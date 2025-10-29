@@ -1,6 +1,7 @@
 package x10
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"mm/pkg/alpha"
@@ -13,6 +14,35 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+func GetMarketInfo(market string) *MarketModel {
+	client := &fasthttp.Client{}
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(resp)
+
+	baseURL := ApiEndpoint + "/info/markets?market=" + market
+	req.SetRequestURI(baseURL)
+	req.Header.SetMethod(fasthttp.MethodGet)
+
+	err := client.Do(req, resp)
+	if err != nil {
+		panic(err)
+	}
+
+	var marketResponse struct {
+		Data   []MarketModel `json:"data"`
+		Status string        `json:"status"`
+	}
+	err = json.Unmarshal(resp.Body(), &marketResponse)
+
+	if err != nil || marketResponse.Status != "OK" {
+		panic(fmt.Errorf("API returned error status: %s", marketResponse.Status))
+	}
+
+	return &marketResponse.Data[0]
+}
+
 func FetchKlines(symbol, interval string, limit int, endTime string) []alpha.Candle {
 	client := &fasthttp.Client{}
 	req := fasthttp.AcquireRequest()
@@ -20,7 +50,7 @@ func FetchKlines(symbol, interval string, limit int, endTime string) []alpha.Can
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)
 
-	req.SetRequestURI(fmt.Sprintf("https://api.starknet.extended.exchange/api/v1/info/candles/%s/%s", symbol, "trades"))
+	req.SetRequestURI(fmt.Sprintf("%s/info/candles/%s/%s", ApiEndpoint, symbol, "trades"))
 	req.Header.SetMethod(fasthttp.MethodGet)
 	queryArgs := req.URI().QueryArgs()
 	queryArgs.Set("symbol", symbol)
@@ -59,7 +89,7 @@ func FetchKlines(symbol, interval string, limit int, endTime string) []alpha.Can
 }
 
 func WsKline(symbol, interval string, onTick func(alpha.Candle)) {
-	wsURL := fmt.Sprintf("wss://api.starknet.extended.exchange/stream.extended.exchange/v1/candles/%s/%s?interval=PT%s", symbol, "trades", strings.ToUpper(interval))
+	wsURL := fmt.Sprintf("%s/candles/%s/%s?interval=PT%s", StreamEndpoint, symbol, "trades", strings.ToUpper(interval))
 
 	for {
 		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)

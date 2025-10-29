@@ -18,7 +18,7 @@ import (
 )
 
 type X10Trader struct {
-	client *APIClient
+	client *ApiClient
 	market *MarketModel
 
 	symbol      string
@@ -72,18 +72,9 @@ func (t *X10Trader) Sync(symbol string) {
 		log.Fatal("Failed to create account:", err)
 	}
 
-	cfg := EndpointConfig{
-		APIBaseURL: "https://api.starknet.extended.exchange/api/v1",
-	}
-	t.client = NewAPIClient(cfg, account.APIKey(), account, 30*time.Second)
+	t.client = NewApiClient(account)
 
-	ctx := context.Background()
-	market, err := t.client.GetMarkets(ctx, symbol)
-	if err != nil {
-		log.Fatal("Failed to get markets:", err)
-	}
-
-	t.market = market
+	t.market = GetMarketInfo(symbol)
 
 	go WsUser(apiKey, symbol, func(pz float64) {
 		t.pz = pz
@@ -106,8 +97,6 @@ func (b *X10Trader) Apply(quote alpha.Quote) {
 }
 
 func (b *X10Trader) placeOrder(sz, px float64) {
-	account, _ := b.client.StarkAccount()
-
 	nonce := int(time.Now().Unix()) // Use timestamp as nonce for uniqueness
 	expireTime := time.Now().Add(5 * time.Minute)
 
@@ -118,11 +107,11 @@ func (b *X10Trader) placeOrder(sz, px float64) {
 	}
 	params := CreateOrderObjectParams{
 		Market:          *b.market,
-		Account:         *account,
+		Account:         *b.client.starkAccount,
 		SyntheticAmount: decimal.NewFromFloat(sz),
 		Price:           decimal.NewFromFloat(px),
 		Side:            side,
-		Signer:          account.Sign,
+		Signer:          b.client.starkAccount.Sign,
 		StarknetDomain: StarknetDomain{
 			Name:     "Perpetuals",
 			Version:  "v0",
@@ -148,7 +137,7 @@ func (t *X10Trader) cancelOrders() {
 }
 
 func WsUser(apiKey, market string, onPz func(pz float64)) {
-	urlStr := "ws://api.starknet.extended.exchange/stream.extended.exchange/v1/account"
+	urlStr := StreamEndpoint + "/account"
 
 	requestHeader := http.Header{}
 	requestHeader.Add("X-Api-Key", apiKey)

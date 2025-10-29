@@ -10,7 +10,7 @@
   "inventoryLimit": 50,
   "inventorySkewK": 0.2,
   "trendSkewK": 0.4,
-  "trendBias": 0.5,
+  "trendBias": -0.5,
 
   "tradeSymbol": "BTC-USD",
   "tradeSz": 0.001,

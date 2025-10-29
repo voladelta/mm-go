@@ -1,98 +1,31 @@
 package x10
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/shopspring/decimal"
+	"github.com/tidwall/gjson"
+	"github.com/valyala/fasthttp"
 )
 
-// APIClient provides REST API functionality for perpetual trading
-// It embeds BaseModule to reuse common functionality like HTTP client, auth, etc.
-type APIClient struct {
-	*BaseModule
+const ApiEndpoint string = "https://api.starknet.extended.exchange/api/v1"
+const StreamEndpoint string = "ws://api.starknet.extended.exchange/stream.extended.exchange/v1"
+
+type ApiClient struct {
+	client       *fasthttp.Client
+	starkAccount *StarkPerpetualAccount
 }
 
-// NewAPIClient creates a new API client instance
-func NewAPIClient(
-	cfg EndpointConfig,
-	apiKey string,
-	starkAccount *StarkPerpetualAccount,
-	clientTimeout time.Duration,
-) *APIClient {
-	baseModule := NewBaseModule(cfg, apiKey, starkAccount, nil, clientTimeout)
-	return &APIClient{
-		BaseModule: baseModule,
+func NewApiClient(starkAccount *StarkPerpetualAccount) *ApiClient {
+	return &ApiClient{
+		client:       &fasthttp.Client{},
+		starkAccount: starkAccount,
 	}
-}
-
-// ===== Market Data Operations =====
-
-// MarketResponse represents the API response for market data
-type MarketResponse struct {
-	Data   []MarketModel `json:"data"`
-	Status string        `json:"status"`
-}
-
-// GetMarkets retrieves all available markets from the API
-func (c *APIClient) GetMarkets(ctx context.Context, market string) (*MarketModel, error) {
-	// Build the URL manually to handle multiple market parameters correctly
-	baseURL := c.BaseModule.EndpointConfig().APIBaseURL + "/info/markets"
-	baseURL += "?market=" + market
-
-	// Use the new DoRequest method to handle the HTTP request and JSON parsing
-	var marketResponse MarketResponse
-	if err := c.BaseModule.DoRequest(ctx, "GET", baseURL, nil, &marketResponse); err != nil {
-		return nil, err
-	}
-
-	// Check API status
-	if marketResponse.Status != "OK" {
-		return nil, fmt.Errorf("API returned error status: %s", marketResponse.Status)
-	}
-
-	return &marketResponse.Data[0], nil
-}
-
-// ===== Fee Data Operations =====
-
-// FeeResponse represents the API response for trading fees
-type FeeResponse struct {
-	Data   []TradingFeeModel `json:"data"`
-	Status string            `json:"status"`
-}
-
-// GetMarketFee retrieves current trading fees for a specific market
-func (c *APIClient) GetMarketFee(ctx context.Context, market string) ([]TradingFeeModel, error) {
-	baseUrl, err := c.GetURL("/user/fees", map[string]string{"market": market})
-	if err != nil {
-		return nil, fmt.Errorf("failed to build URL: %w", err)
-	}
-
-	// Use the new DoRequest method to handle the HTTP request and JSON parsing
-	var feeResponse FeeResponse
-	if err := c.BaseModule.DoRequest(ctx, "GET", baseUrl, nil, &feeResponse); err != nil {
-		return nil, err
-	}
-
-	if feeResponse.Status != "OK" {
-		return nil, fmt.Errorf("API returned error status: %v", feeResponse.Status)
-	}
-
-	return feeResponse.Data, nil
 }
 
 // ===== Order Operations =====
-
-// OrderRequest represents the complete order submission request
-type OrderRequest struct {
-	Order     PerpetualOrderModel `json:"order"`
-	Signature string              `json:"signature,omitempty"` // Additional API-level signature if needed
-	Timestamp int64               `json:"timestamp"`           // Request timestamp for replay protection
-}
 
 // OrderResponse represents the API response after order submission
 type OrderResponse struct {
@@ -103,31 +36,37 @@ type OrderResponse struct {
 	}
 }
 
-// SubmitOrder submits a perpetual order to the trading API
-func (c *APIClient) SubmitOrder(ctx context.Context, order *PerpetualOrderModel) (*OrderResponse, error) {
-	// Validate order object is complete and properly signed
+func (c *ApiClient) SubmitOrder(ctx context.Context, order *PerpetualOrderModel) (*OrderResponse, error) {
 	if order == nil {
 		return nil, fmt.Errorf("order is nil")
 	}
 
-	baseUrl, err := c.GetURL("/user/order", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build URL: %w", err)
-	}
-
-	// Marshal the order to JSON
-	orderJSON, err := json.Marshal(order)
+	orderReq, err := json.Marshal(order)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal order to JSON: %w", err)
 	}
 
-	// Create a buffer with the JSON data
-	jsonData := bytes.NewBuffer(orderJSON)
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+	req.SetRequestURI(ApiEndpoint + "/user/order")
+	req.Header.SetMethod(fasthttp.MethodPost)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", c.starkAccount.apiKey)
+	req.SetBody(orderReq)
+
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(resp)
+
+	err = c.client.Do(req, resp)
+	if err != nil {
+		panic(err)
+	}
 
 	// Use the new DoRequest method to handle the HTTP request and JSON parsing
 	var orderResponse OrderResponse
-	if err := c.BaseModule.DoRequest(ctx, "POST", baseUrl, jsonData, &orderResponse); err != nil {
-		return nil, err
+	err = json.Unmarshal(resp.Body(), &orderResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if orderResponse.Status != "OK" {
@@ -141,38 +80,34 @@ func (c *APIClient) SubmitOrder(ctx context.Context, order *PerpetualOrderModel)
 	return &orderResponse, nil
 }
 
-// MassCancelResponse represents the API response after MassCancel submission
-type MassCancelResponse struct {
-	Status string `json:"status"`
-}
-
 // MassCancel enables the cancellation of multiple orders by ID, by specific market, or for all orders within an account.
-func (c *APIClient) MassCancel(ctx context.Context, market string) (*MassCancelResponse, error) {
-	baseUrl, err := c.GetURL("/user/order/massCancel", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build URL: %w", err)
-	}
-
-	req := map[string]any{
+func (c *ApiClient) MassCancel(ctx context.Context, market string) bool {
+	mcReq, err := json.Marshal(map[string]any{
 		"markets":   []string{market},
 		"cancelAll": true,
-	}
-	// Marshal the order to JSON
-	orderJSON, err := json.Marshal(req)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal order to JSON: %w", err)
+		return false
 	}
 
-	// Create a buffer with the JSON data
-	jsonData := bytes.NewBuffer(orderJSON)
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+	req.SetRequestURI(ApiEndpoint + "/user/order/massCancel")
+	req.Header.SetMethod(fasthttp.MethodPost)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", c.starkAccount.apiKey)
+	req.SetBody(mcReq)
 
-	// Use the new DoRequest method to handle the HTTP request and JSON parsing
-	var mcResponse MassCancelResponse
-	if err := c.BaseModule.DoRequest(ctx, "POST", baseUrl, jsonData, &mcResponse); err != nil {
-		return nil, err
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(resp)
+
+	err = c.client.Do(req, resp)
+	if err != nil {
+		panic(err)
 	}
 
-	return &mcResponse, nil
+	status := gjson.GetBytes(resp.Body(), "status")
+	return status.Str == "OK"
 }
 
 type L2ConfigModel struct {
