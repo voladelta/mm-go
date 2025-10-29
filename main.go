@@ -52,10 +52,9 @@ func main() {
 	bn.WsKline(params.Symbol, func(c alpha.Candle) {
 		if c.Time > kline.Time {
 			ok, quote := strategy.Process(kline, trader.Inventory())
-			if !ok {
-				return
+			if ok {
+				trader.Apply(quote)
 			}
-			trader.Apply(quote)
 		}
 		kline = c
 	})
