@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"mm/pkg/alpha"
 	"mm/pkg/bn"
+	"mm/pkg/x10"
 )
 
 func main() {
+	x10.WsUser("56136b6e52839dd637297e74e9dcbdfe", "BTC-USD", func(pz float64) {
+		println(pz)
+	})
+
 	paramsFile := flag.String("p", "params.json", "Strategy parameters")
 	showTrades := flag.Bool("s", false, "Show trades")
 	isTesting := flag.Bool("t", false, "Backtest mode")
