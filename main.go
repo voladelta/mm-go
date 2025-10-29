@@ -9,10 +9,6 @@ import (
 )
 
 func main() {
-	x10.WsKline("BTC-USD", "1M", func(c alpha.Candle) {
-		fmt.Printf("%v\n", c)
-	})
-
 	paramsFile := flag.String("p", "params.json", "Strategy parameters")
 	showTrades := flag.Bool("s", false, "Show trades")
 	isTesting := flag.Bool("t", false, "Backtest mode")
