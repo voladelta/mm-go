@@ -60,7 +60,7 @@ func FetchKlines(symbol, interval string, limit int, endTime string) []alpha.Can
 	return candles
 }
 
-func WsKline(symbol string, onTick func(alpha.Candle, bool)) {
+func WsKline(symbol string, onTick func(alpha.Candle)) {
 	wsURL := fmt.Sprintf("wss://fstream.binance.com/ws/%s@kline_1m", strings.ToLower(symbol))
 
 	for {
@@ -85,7 +85,7 @@ func WsKline(symbol string, onTick func(alpha.Candle, bool)) {
 				Low:    k.Get("l").Float(),
 				Close:  k.Get("c").Float(),
 				Volume: k.Get("v").Float(),
-			}, k.Get("x").Bool())
+			})
 		}
 
 		slog.Info("WsBbo", "disconnected", "reconnect in a sec")

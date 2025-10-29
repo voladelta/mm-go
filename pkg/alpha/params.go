@@ -10,7 +10,7 @@ type Params struct {
 	Symbol         string  `json:"symbol"`
 	Interval       string  `json:"interval"`
 	EndTime        string  `json:"endTime"`
-	Limit          int     `json:"limit"`
+	BarsCount      int     `json:"barsCount"`
 	MeSpan         int     `json:"meSpan"`
 	EmaSpan        int     `json:"emaSpan"`
 	BaseSpread     float64 `json:"baseSpread"`
