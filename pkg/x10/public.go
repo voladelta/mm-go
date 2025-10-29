@@ -100,7 +100,7 @@ func WsKline(symbol, interval string, onTick func(alpha.Candle)) {
 		for {
 			_, message, err := conn.ReadMessage()
 			if err != nil {
-				slog.Error("WsBbo", "WebSocket read error", err)
+				slog.Error("WsKline", "WebSocket read error", err)
 				conn.Close()
 				break
 			}
@@ -122,7 +122,7 @@ func WsKline(symbol, interval string, onTick func(alpha.Candle)) {
 			})
 		}
 
-		slog.Info("WsBbo", "disconnected", "reconnect in a sec")
+		slog.Info("WsKline", "disconnected", "reconnect in a sec")
 		time.Sleep(time.Second)
 	}
 }
