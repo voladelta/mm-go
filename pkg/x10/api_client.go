@@ -36,7 +36,7 @@ type OrderResponse struct {
 	}
 }
 
-func (c *ApiClient) SubmitOrder(ctx context.Context, order *PerpetualOrderModel) (*OrderResponse, error) {
+func (c *ApiClient) SubmitOrder(order *PerpetualOrderModel) (*OrderResponse, error) {
 	if order == nil {
 		return nil, fmt.Errorf("order is nil")
 	}

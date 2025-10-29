@@ -2,6 +2,7 @@ package x10
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"math"
@@ -126,9 +127,11 @@ func (b *X10Trader) placeOrder(sz, px float64) {
 	}
 
 	// Create the order object
-	order, _ := CreateOrderObject(params)
-	ctx := context.Background()
-	b.client.SubmitOrder(ctx, order)
+	order, err := CreateOrderObject(params)
+	if err != nil {
+		panic(fmt.Errorf("failed to create order: %w", err))
+	}
+	b.client.SubmitOrder(order)
 }
 
 func (t *X10Trader) cancelOrders() {
