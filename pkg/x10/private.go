@@ -75,16 +75,15 @@ func (t *X10Trader) Sync(symbol string) {
 	cfg := EndpointConfig{
 		APIBaseURL: "https://api.starknet.extended.exchange/api/v1",
 	}
-	client := NewAPIClient(cfg, account.APIKey(), account, 30*time.Second)
-	defer client.Close()
+	t.client = NewAPIClient(cfg, account.APIKey(), account, 30*time.Second)
 
 	ctx := context.Background()
-	markets, err := client.GetMarkets(ctx, []string{"BTC-USD"})
+	market, err := t.client.GetMarkets(ctx, symbol)
 	if err != nil {
 		log.Fatal("Failed to get markets:", err)
 	}
 
-	t.market = &markets[0]
+	t.market = market
 
 	go WsUser(apiKey, symbol, func(pz float64) {
 		t.pz = pz
@@ -143,9 +142,9 @@ func (b *X10Trader) placeOrder(sz, px float64) {
 	b.client.SubmitOrder(ctx, order)
 }
 
-func (b *X10Trader) cancelOrders() {
+func (t *X10Trader) cancelOrders() {
 	ctx := context.Background()
-	b.client.MassCancel(ctx, b.market.Name)
+	t.client.MassCancel(ctx, t.market.Name)
 }
 
 func WsUser(apiKey, market string, onPz func(pz float64)) {

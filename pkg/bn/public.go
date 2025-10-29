@@ -60,8 +60,8 @@ func FetchKlines(symbol, interval string, limit int, endTime string) []alpha.Can
 	return candles
 }
 
-func WsKline(symbol string, onTick func(alpha.Candle)) {
-	wsURL := fmt.Sprintf("wss://fstream.binance.com/ws/%s@kline_1m", strings.ToLower(symbol))
+func WsKline(symbol, interval string, onTick func(alpha.Candle)) {
+	wsURL := fmt.Sprintf("wss://fstream.binance.com/ws/%s@kline_%s", strings.ToLower(symbol), interval)
 
 	for {
 		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)

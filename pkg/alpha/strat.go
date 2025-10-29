@@ -226,7 +226,7 @@ func (s *MmStrat) Process(c Candle, inventory int) (bool, Quote) {
 			baseTrend = -baseTrend
 		}
 
-		trendSignal := clampFloat(s.emaIndi.SlopeNorm+0.5*baseTrend+s.TrendBias, -1, 1)
+		trendSignal := clampFloat(s.emaIndi.SlopeNorm+0.5*baseTrend-s.TrendBias, -1, 1)
 		trendShift := s.TrendSkewK * trendSignal * halfSpread
 		bid -= trendShift
 		ask -= trendShift

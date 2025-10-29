@@ -38,16 +38,10 @@ type MarketResponse struct {
 }
 
 // GetMarkets retrieves all available markets from the API
-func (c *APIClient) GetMarkets(ctx context.Context, market []string) ([]MarketModel, error) {
+func (c *APIClient) GetMarkets(ctx context.Context, market string) (*MarketModel, error) {
 	// Build the URL manually to handle multiple market parameters correctly
 	baseURL := c.BaseModule.EndpointConfig().APIBaseURL + "/info/markets"
-
-	if len(market) > 0 {
-		baseURL += "?market=" + market[0]
-		for i := 1; i < len(market); i++ {
-			baseURL += "&market=" + market[i]
-		}
-	}
+	baseURL += "?market=" + market
 
 	// Use the new DoRequest method to handle the HTTP request and JSON parsing
 	var marketResponse MarketResponse
@@ -60,7 +54,7 @@ func (c *APIClient) GetMarkets(ctx context.Context, market []string) ([]MarketMo
 		return nil, fmt.Errorf("API returned error status: %s", marketResponse.Status)
 	}
 
-	return marketResponse.Data, nil
+	return &marketResponse.Data[0], nil
 }
 
 // ===== Fee Data Operations =====
@@ -169,8 +163,6 @@ func (c *APIClient) MassCancel(ctx context.Context, market string) (*MassCancelR
 		return nil, fmt.Errorf("failed to marshal order to JSON: %w", err)
 	}
 
-	fmt.Printf("%v\n", string(orderJSON))
-
 	// Create a buffer with the JSON data
 	jsonData := bytes.NewBuffer(orderJSON)
 
@@ -179,8 +171,6 @@ func (c *APIClient) MassCancel(ctx context.Context, market string) (*MassCancelR
 	if err := c.BaseModule.DoRequest(ctx, "POST", baseUrl, jsonData, &mcResponse); err != nil {
 		return nil, err
 	}
-
-	fmt.Printf("%v\n", mcResponse)
 
 	return &mcResponse, nil
 }

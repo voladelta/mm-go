@@ -1,7 +1,7 @@
 {
   "symbol": "BTC-USD",
   "interval": "1m",
-  "limit": 1500,
+  "barsCount": 120,
 
   "meSpan": 15,
   "emaSpan": 15,
@@ -12,8 +12,8 @@
   "trendSkewK": 0.4,
   "trendBias": 0.5,
 
-  "tradeSymbol": "BTCUSDC",
+  "tradeSymbol": "BTC-USD",
   "tradeSz": 0.001,
-  "pxPrecision": 1,
+  "pxPrecision": 0,
   "szPrecision": 3
 }

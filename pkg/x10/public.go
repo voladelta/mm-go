@@ -75,8 +75,6 @@ func WsKline(symbol, interval string, onTick func(alpha.Candle)) {
 				break
 			}
 
-			println(string(message))
-
 			data := gjson.GetBytes(message, "data")
 			if !data.IsArray() {
 				continue

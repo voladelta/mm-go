@@ -4,15 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"mm/pkg/alpha"
-	"mm/pkg/bn"
 	"mm/pkg/x10"
 )
 
 func main() {
-	x10.WsUser("56136b6e52839dd637297e74e9dcbdfe", "BTC-USD", func(pz float64) {
-		println(pz)
-	})
-
 	paramsFile := flag.String("p", "params.json", "Strategy parameters")
 	showTrades := flag.Bool("s", false, "Show trades")
 	isTesting := flag.Bool("t", false, "Backtest mode")
@@ -25,7 +20,7 @@ func main() {
 	paper := alpha.NewPaperEngine()
 
 	fmt.Printf("Fetching data for %s (%s, limit=%d)...\n", params.Symbol, params.Interval, params.BarsCount)
-	candles := bn.FetchKlines(params.Symbol, params.Interval, params.BarsCount, params.EndTime)
+	candles := x10.FetchKlines(params.Symbol, params.Interval, params.BarsCount, params.EndTime)
 	barsCount := params.BarsCount - 1 // ignore last, incomplete bar
 	for i := range barsCount {
 		c := candles[i]
@@ -50,11 +45,11 @@ func main() {
 		return
 	}
 
-	trader := bn.NewBinance(params)
+	trader := x10.NewX10Trader(params)
 	trader.Sync(params.TradeSymbol)
 
 	kline := candles[barsCount] // use last as prev bar
-	bn.WsKline(params.Symbol, func(c alpha.Candle) {
+	x10.WsKline(params.Symbol, params.Interval, func(c alpha.Candle) {
 		if c.Time > kline.Time {
 			ok, quote := strategy.Process(kline, trader.Inventory())
 			if ok {

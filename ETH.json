@@ -1,7 +1,7 @@
 {
-  "symbol": "ETHUSDC",
+  "symbol": "ETH-USD",
   "interval": "1m",
-  "limit": 120,
+  "barsCount": 120,
 
   "meSpan": 15,
   "emaSpan": 15,
@@ -12,8 +12,8 @@
   "trendSkewK": 0.4,
   "trendBias": -0.5,
 
-  "tradeSymbol": "ETHUSDC",
+  "tradeSymbol": "ETH-USD",
   "tradeSz": 0.01,
-  "pxPrecision": 2,
+  "pxPrecision": 1,
   "szPrecision": 2
 }
