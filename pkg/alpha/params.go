@@ -14,6 +14,7 @@ type Params struct {
 	MeSpan         int     `json:"meSpan"`
 	EmaSpan        int     `json:"emaSpan"`
 	BaseSpread     float64 `json:"baseSpread"`
+	BackoffSpread  float64 `json:"backoffSpread"`
 	InventoryLimit int     `json:"inventoryLimit"`
 	LotSize        int     `json:"lotSize"`
 	InventorySkewK float64 `json:"inventorySkewK"`

@@ -5,11 +5,13 @@
 
   "meSpan": 15,
   "emaSpan": 15,
-  "baseSpread": 0.001,
+  "baseSpread": 0.00025,
+  "backoffSpread": 0.001,
+
   "lotSize": 1,
   "inventoryLimit": 50,
   "inventorySkewK": 0.2,
-  "trendSkewK": 0.4,
+  "trendSkewK": 0.1,
   "trendBias": -0.5,
 
   "tradeSymbol": "BTC-USD",

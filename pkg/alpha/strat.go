@@ -122,16 +122,11 @@ func (indi *EmaIndicator) Process(c Candle) bool {
 	n := float64(len(indi.window))
 	mean := indi.sum / n
 	variance := (indi.sumSquares / n) - (mean * mean)
-	if variance < 0 {
-		variance = 0
-	}
-
 	stdDev := math.Sqrt(variance)
 
-	slope := math.NaN()
 	normSlope := math.NaN()
 	if indi.hasLastMid {
-		slope = mean - indi.lastMid
+		slope := mean - indi.lastMid
 		denom := stdDev
 		if denom == 0 {
 			denom = math.Abs(indi.lastMid)
@@ -151,6 +146,7 @@ func (indi *EmaIndicator) Process(c Candle) bool {
 
 	indi.lastMid = mean
 	indi.hasLastMid = true
+	indi.SlopeNorm = normSlope
 
 	return true
 }
@@ -159,6 +155,7 @@ type MmStrat struct {
 	meIndi         *MeIndicator
 	emaIndi        *EmaIndicator
 	BaseSpread     float64
+	BackoffSpread  float64
 	InventoryLimit int
 	LotSize        int
 	InventorySkewK float64
@@ -171,6 +168,7 @@ func NewMmStrat(params *Params) *MmStrat {
 		meIndi:         NewMeIndicator(params.MeSpan),
 		emaIndi:        NewEmaIndicator(params.EmaSpan),
 		BaseSpread:     params.BaseSpread,
+		BackoffSpread:  params.BackoffSpread,
 		InventoryLimit: params.InventoryLimit,
 		LotSize:        params.LotSize,
 		InventorySkewK: params.InventorySkewK,
@@ -202,22 +200,23 @@ func (s *MmStrat) Process(c Candle, inventory int) (bool, Quote) {
 	closePrice := c.Close
 	efficiency := s.meIndi.Efficiency
 
-	spread := s.BaseSpread * closePrice * (1 + efficiency*2)
-	halfSpread := spread / 2
+	spread := s.BaseSpread
+	if inventory > s.InventoryLimit/2 {
+		spread = s.BackoffSpread
+	}
+	adjSpread := spread * closePrice * (1 + efficiency*2)
+	halfSpread := adjSpread / 2
 
 	mid := closePrice
 	bid := mid - halfSpread
 	ask := mid + halfSpread
 
 	if s.InventoryLimit > 0 && s.InventorySkewK != 0 {
-		invDenominator := float64(s.InventoryLimit)
-		if invDenominator != 0 {
-			invFrac := float64(inventory) / invDenominator
-			invFrac = clampFloat(invFrac, -1, 1)
-			invShift := s.InventorySkewK * invFrac * halfSpread
-			bid -= invShift
-			ask -= invShift
-		}
+		invFrac := float64(inventory) / float64(s.InventoryLimit)
+		invFrac = clampFloat(invFrac, -1, 1)
+		invShift := s.InventorySkewK * invFrac * halfSpread
+		bid -= invShift
+		ask -= invShift
 	}
 
 	if s.TrendSkewK != 0 {
